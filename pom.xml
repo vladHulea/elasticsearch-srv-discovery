@@ -25,7 +25,7 @@
     </scm>
 
     <properties>
-        <elasticsearch.version>1.5.2</elasticsearch.version>
+        <elasticsearch.version>0.90.11</elasticsearch.version>
     </properties>
 
     <dependencies>

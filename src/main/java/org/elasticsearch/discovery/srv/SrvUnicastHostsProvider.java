@@ -46,6 +46,8 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
     public static final String DISCOVERY_SRV_QUERY = "discovery.srv.query";
     public static final String DISCOVERY_SRV_SERVERS = "discovery.srv.servers";
 
+    public static final String DISCOVERY_SRV_CONSULPOSTFIX = "discovery.srv.consulpostfix";
+
     public static final String DISCOVERY_SRV_PROTOCOL = "discovery.srv.protocol";
 
     private final TransportService transportService;
@@ -68,7 +70,8 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
     @Nullable
     private Resolver buildResolver(Settings settings) {
         String[] addresses = settings.getAsArray(DISCOVERY_SRV_SERVERS);
-
+        logger.info("Trying to find stuff using {}",addresses);
+        logger.info("Trying to find stuff using {}", settings.get(DISCOVERY_SRV_SERVERS));
         // Use tcp by default since it retrieves all records
         String protocol = settings.get(DISCOVERY_SRV_PROTOCOL, "tcp");
 
@@ -77,6 +80,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
         Resolver parent_resolver = null;
 
         for (String address : addresses) {
+            logger.info("Trying address {} ",address);
             String host = null;
             int port = -1;
             String[] parts = address.split(":");
@@ -86,7 +90,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
                     try {
                         port = Integer.valueOf(parts[1]);
                     } catch (Exception e) {
-                        logger.warn("Resolver port '{}' is not an integer. Using default port 53", parts[1]);
+                        logger.info("Resolver port '{}' is not an integer. Using default port 53", parts[1]);
                     }
                 }
 
@@ -99,7 +103,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
                 }
                 resolvers.add(resolver);
             } catch (UnknownHostException e) {
-                logger.warn("Could not create resolver for '{}'", address, e);
+                logger.info("Could not create resolver for '{}'", address, e);
             }
         }
 
@@ -111,7 +115,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
                     parent_resolver.setTCP(true);
                 }
             } catch (UnknownHostException e) {
-                logger.warn("Could not create resolver. Using default resolver.", e);
+                logger.info("Could not create resolver. Using default resolver.", e);
             }
         }
         return parent_resolver;
@@ -125,7 +129,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
         }
         try {
             Record[] records = lookupRecords();
-            logger.trace("Building dynamic unicast discovery nodes...");
+            logger.info("Building dynamic unicast discovery nodes...");
             if (records == null || records.length == 0) {
                 logger.debug("No nodes found");
             } else {
@@ -140,6 +144,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
     }
 
     protected Record[] lookupRecords() throws TextParseException {
+        logger.info("Trying to lookup {} ",query);
         Lookup lookup = new Lookup(query, Type.SRV);
         if (this.resolver != null) {
             lookup.setResolver(this.resolver);
@@ -153,15 +158,24 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
             SRVRecord srv = (SRVRecord) record;
 
             String hostname = srv.getTarget().toString().replaceFirst("\\.$", "");
+            logger.info("Found hostname {}", hostname);
+            logger.info("Found getName {}", srv.getName().toString());
+            logger.info("Found cononicalize {}",srv.getTarget().canonicalize());
+            if(!settings.get(DISCOVERY_SRV_CONSULPOSTFIX).isEmpty()) {
+                logger.info("Removing consul post fix from name '{}'", hostname);
+                logger.info("String to remove is {}", settings.get(DISCOVERY_SRV_CONSULPOSTFIX));
+                hostname = hostname.replace(settings.get(DISCOVERY_SRV_CONSULPOSTFIX), "");
+                logger.info("Result is '{}'", hostname);
+            }
             int port = srv.getPort();
             String address = hostname + ":" + port;
 
             try {
                 TransportAddress[] addresses = transportService.addressesFromString(address);
-                logger.trace("adding {}, transport_address {}", address, addresses[0]);
-                discoNodes.add(new DiscoveryNode("#srv-" + address, addresses[0], version.minimumCompatibilityVersion()));
+                logger.info("adding {}, transport_address {}", address, addresses[0]);
+                discoNodes.add(new DiscoveryNode("#srv-" + address, addresses[0], version));
             } catch (Exception e) {
-                logger.warn("failed to add {}, address {}", e, address);
+                logger.info("failed to add {}, address {}", e, address);
             }
         }
         return discoNodes;

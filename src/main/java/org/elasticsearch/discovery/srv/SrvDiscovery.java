@@ -22,15 +22,14 @@
 
 package org.elasticsearch.discovery.srv;
 
+import org.elasticsearch.Version;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNodeService;
 import org.elasticsearch.cluster.settings.DynamicSettings;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.discovery.DiscoverySettings;
 import org.elasticsearch.discovery.zen.ZenDiscovery;
-import org.elasticsearch.discovery.zen.elect.ElectMasterService;
 import org.elasticsearch.discovery.zen.ping.ZenPingService;
 import org.elasticsearch.node.settings.NodeSettingsService;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -44,9 +43,8 @@ public class SrvDiscovery extends ZenDiscovery {
     @Inject
     public SrvDiscovery(Settings settings, ClusterName clusterName, ThreadPool threadPool, TransportService transportService,
                         ClusterService clusterService, NodeSettingsService nodeSettingsService, ZenPingService pingService,
-                        DiscoveryNodeService discoveryNodeService,DiscoverySettings discoverySettings,
-                        ElectMasterService electMasterService, DynamicSettings dynamicSettings) {
+                        DiscoveryNodeService discoveryNodeService, Version version) {
         super(settings, clusterName, threadPool, transportService, clusterService, nodeSettingsService,
-                discoveryNodeService, pingService, electMasterService, discoverySettings, dynamicSettings);
+                discoveryNodeService, pingService, version);
     }
 }
