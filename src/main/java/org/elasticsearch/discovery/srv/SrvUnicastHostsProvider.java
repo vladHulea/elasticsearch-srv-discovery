@@ -70,8 +70,6 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
     @Nullable
     private Resolver buildResolver(Settings settings) {
         String[] addresses = settings.getAsArray(DISCOVERY_SRV_SERVERS);
-        logger.info("Trying to find stuff using {}",addresses);
-        logger.info("Trying to find stuff using {}", settings.get(DISCOVERY_SRV_SERVERS));
         // Use tcp by default since it retrieves all records
         String protocol = settings.get(DISCOVERY_SRV_PROTOCOL, "tcp");
 
@@ -80,7 +78,6 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
         Resolver parent_resolver = null;
 
         for (String address : addresses) {
-            logger.info("Trying address {} ",address);
             String host = null;
             int port = -1;
             String[] parts = address.split(":");
@@ -144,7 +141,6 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
     }
 
     protected Record[] lookupRecords() throws TextParseException {
-        logger.info("Trying to lookup {} ",query);
         Lookup lookup = new Lookup(query, Type.SRV);
         if (this.resolver != null) {
             lookup.setResolver(this.resolver);
@@ -158,14 +154,9 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
             SRVRecord srv = (SRVRecord) record;
 
             String hostname = srv.getTarget().toString().replaceFirst("\\.$", "");
-            logger.info("Found hostname {}", hostname);
-            logger.info("Found getName {}", srv.getName().toString());
-            logger.info("Found cononicalize {}",srv.getTarget().canonicalize());
             if(!settings.get(DISCOVERY_SRV_CONSULPOSTFIX).isEmpty()) {
                 logger.info("Removing consul post fix from name '{}'", hostname);
-                logger.info("String to remove is {}", settings.get(DISCOVERY_SRV_CONSULPOSTFIX));
                 hostname = hostname.replace(settings.get(DISCOVERY_SRV_CONSULPOSTFIX), "");
-                logger.info("Result is '{}'", hostname);
             }
             int port = srv.getPort();
             String address = hostname + ":" + port;
