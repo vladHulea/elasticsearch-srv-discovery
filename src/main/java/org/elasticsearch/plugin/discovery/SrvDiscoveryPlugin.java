@@ -33,12 +33,10 @@ public class SrvDiscoveryPlugin extends AbstractPlugin {
         this.settings = settings;
     }
 
-    @Override
     public String name() {
         return "srv-discovery";
     }
 
-    @Override
     public String description() {
         return "SRV Discovery Plugin";
     }

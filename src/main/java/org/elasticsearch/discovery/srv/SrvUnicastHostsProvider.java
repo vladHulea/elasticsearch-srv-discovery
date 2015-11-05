@@ -23,9 +23,17 @@
 
 package org.elasticsearch.discovery.srv;
 
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.Enumeration;
+import java.util.List;
+
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.Nullable;
+import org.elasticsearch.common.base.Joiner;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -33,10 +41,14 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.discovery.zen.ping.unicast.UnicastHostsProvider;
 import org.elasticsearch.transport.TransportService;
-import org.xbill.DNS.*;
-
-import java.net.UnknownHostException;
-import java.util.List;
+import org.xbill.DNS.ExtendedResolver;
+import org.xbill.DNS.Lookup;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.Resolver;
+import org.xbill.DNS.SRVRecord;
+import org.xbill.DNS.SimpleResolver;
+import org.xbill.DNS.TextParseException;
+import org.xbill.DNS.Type;
 
 /**
  *
@@ -108,7 +120,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
             try {
                 parent_resolver = new ExtendedResolver(resolvers.toArray(new Resolver[resolvers.size()]));
 
-                if (protocol == "tcp") {
+                if (isTCP(protocol)) {
                     parent_resolver.setTCP(true);
                 }
             } catch (UnknownHostException e) {
@@ -116,6 +128,10 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
             }
         }
         return parent_resolver;
+    }
+
+    protected boolean isTCP(String protocol) {
+        return "tcp".equals(protocol);
     }
 
     public List<DiscoveryNode> buildDynamicNodes() {
@@ -126,17 +142,66 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
         }
         try {
             Record[] records = lookupRecords();
+            logger.info("Found the following records: ", Joiner.on(", ").join(records));
+            List<Record> filteredRecords = filterOutOwnRecord(records);
             logger.info("Building dynamic unicast discovery nodes...");
-            if (records == null || records.length == 0) {
-                logger.debug("No nodes found");
+            if (filteredRecords == null || filteredRecords.size() == 0) {
+                logger.warn("No nodes found");
             } else {
-                discoNodes = parseRecords(records);
+                discoNodes = parseRecords(filteredRecords);
             }
         } catch (TextParseException e) {
             logger.error("Unable to parse DNS query '{}'", query);
             logger.error("DNS lookup exception:", e);
         }
         logger.info("Using dynamic discovery nodes {}", discoNodes);
+        return discoNodes;
+    }
+
+    protected boolean isLocalIP(String ip) {
+        Enumeration e = null;
+        try {
+            e = NetworkInterface.getNetworkInterfaces();
+        } catch (SocketException e1) {
+            logger.error(e1.toString());
+        }
+        while (e.hasMoreElements()) {
+            NetworkInterface n = (NetworkInterface) e.nextElement();
+            Enumeration ee = n.getInetAddresses();
+            while (ee.hasMoreElements()) {
+                InetAddress i = (InetAddress) ee.nextElement();
+                logger.info("Local interface address: " + i.getHostAddress());
+                if (i.getHostAddress().equals((ip))) {
+                    logger.info("Filtered out interface address " + ip + " because it was an local interface.");
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected List<Record> filterOutOwnRecord(Record[] records) {
+        List<Record> discoNodes = Lists.newArrayList();
+        logger.info("Trying to filter out localhost records from: ", Joiner.on(", ").join(discoNodes));
+        for (Record record : records) {
+            SRVRecord srv = (SRVRecord) record;
+
+            String hostname = srv.getTarget().toString().replaceFirst("\\.$", "");
+
+            if (!settings.get(DISCOVERY_SRV_CONSULPOSTFIX, "").isEmpty()) {
+                hostname = hostname.replace(settings.get(DISCOVERY_SRV_CONSULPOSTFIX), "");
+            }
+            try {
+                InetAddress address = InetAddress.getByName(hostname);
+                logger.info("Resolved {} to {}", hostname, address.getHostAddress());
+                if (!isLocalIP(address.getHostAddress())) {
+                    discoNodes.add(record);
+                }
+            } catch (UnknownHostException e) {
+                logger.error(e.toString());
+            }
+        }
+
         return discoNodes;
     }
 
@@ -148,13 +213,13 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
         return lookup.run();
     }
 
-    protected List<DiscoveryNode> parseRecords(Record[] records) {
+    protected List<DiscoveryNode> parseRecords(List<Record> records) {
         List<DiscoveryNode> discoNodes = Lists.newArrayList();
         for (Record record : records) {
             SRVRecord srv = (SRVRecord) record;
 
             String hostname = srv.getTarget().toString().replaceFirst("\\.$", "");
-            if(!settings.get(DISCOVERY_SRV_CONSULPOSTFIX).isEmpty()) {
+            if (!settings.get(DISCOVERY_SRV_CONSULPOSTFIX).isEmpty()) {
                 logger.info("Removing consul post fix from name '{}'", hostname);
                 hostname = hostname.replace(settings.get(DISCOVERY_SRV_CONSULPOSTFIX), "");
             }
