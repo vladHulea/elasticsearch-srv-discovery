@@ -6,7 +6,7 @@
 
     <groupId>org.elasticsearch</groupId>
     <artifactId>elasticsearch-srv-discovery</artifactId>
-    <version>1.7.1-1</version>
+    <version>1.7.1-2</version>
     <packaging>jar</packaging>
     <name>Elasticsearch SRV discovery plugin</name>
     <description>The SRV discovery plugin allows to use SRV recrds for unicast discovery.</description>
@@ -32,7 +32,7 @@
         <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
-            <version>${elasticsearch.version}</version>
+            <version>[${elasticsearch.version},2.0.0-!)</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
