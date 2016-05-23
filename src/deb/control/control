@@ -2,7 +2,7 @@ Source: elasticsearch-srv-discovery
 Section: java
 Priority: extra
 Version: [[version]]
-Maintainer: smo@tradeshift.com
+Maintainer: ktu@tradeshift.com
 Homepage: https://github.com/Tradeshift/elasticsearch-srv-discovery
 Vcs-Git: git@github.com:Tradeshift/elasticsearch-srv-discovery.git
 Vcs-Browser: https://github.com/Tradeshift/elasticsearch-srv-discovery
@@ -11,4 +11,4 @@ Architecture: all
 Conflicts:
 Replaces:
 Description: [[description]]
-Depends: elasticsearch (= 1.7.1)
+Depends: elasticsearch (>=1.7.1), elasticsearch (<2.0.0)
